@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: rgb(18, 18, 18); --panel-color: rgb(28, 28, 30);
+            --border-color: rgba(197, 168, 128, 0.2); --text-color: rgb(229, 229, 231);
+            --text-secondary-color: rgb(160, 160, 165); --accent-color: rgb(197, 168, 128);
+            --accent-hover-color: rgb(212, 185, 147); --success-color: #28a745;
+            --error-color: #dc3545; --admin-color: #6c5ce7; --system-color: #0984e3;
+        }
+        html { scroll-behavior: smooth; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif; background-color: var(--bg-color);
+            color: var(--text-color); margin: 0; padding: 40px;
+        }
+        .dashboard-grid {
+            display: grid; grid-template-columns: 1fr 1.2fr;
+            grid-template-rows: auto 1fr; gap: 40px;
+            max-width: 1800px; margin: auto;
+        }
+        .dashboard-panel {
+            background-color: var(--panel-color); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 30px; display: flex; flex-direction: column;
+        }
+        .activity { grid-column: 2 / 3; grid-row: 1 / 3; }
+        h2 {
+            font-size: 24px; margin-top: 0; padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        h2 a {
+            font-size: 14px; font-weight: 500; color: var(--accent-color);
+            text-decoration: none;
+        }
+        h2 a:hover { text-decoration: underline; }
+        .scrollable-content { overflow-y: auto; }
+        input, select, textarea {
+            width: 100%; padding: 12px; background-color: var(--bg-color);
+            border: 1px solid var(--border-color); border-radius: 8px;
+            color: var(--text-color); font-size: 16px; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        textarea { resize: vertical; min-height: 80px; }
+        input:focus, select:focus, textarea:focus {
+            outline: none; border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(197, 168, 128, 0.3);
+        }
+        button {
+            width: 100%; padding: 14px; background-color: var(--accent-color);
+            color: var(--bg-color); border: none; border-radius: 8px; font-size: 16px;
+            font-weight: 700; cursor: pointer; transition: background-color 0.2s, transform 0.2s;
+        }
+        button:hover { background-color: var(--accent-hover-color); transform: scale(1.02); }
+        .form-group { margin-bottom: 20px; }
+        .status-message { text-align: center; margin-top: 15px; font-weight: 500; min-height: 1em; }
+        .success { color: var(--success-color); }
+        .error { color: var(--error-color); }
+        .log-entry {
+            border-left: 4px solid var(--border-color); padding: 15px;
+            margin-bottom: 10px; border-radius: 0 8px 8px 0;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.02), transparent);
+        }
+        .log-entry.log-entry--admin { border-left-color: var(--admin-color); }
+        .log-entry.log-entry--system { border-left-color: var(--system-color); }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .log-type { font-weight: 700; font-size: 16px; color: var(--text-color); }
+        .log-type .icon { margin-right: 8px; }
+        .log-type.log-type--admin { color: var(--admin-color); }
+        .log-type.log-type--system { color: var(--system-color); }
+        .log-time { font-size: 12px; color: var(--text-secondary-color); }
+        .log-body { color: var(--text-secondary-color); margin-bottom: 12px; font-size: 14px; }
+        .log-user { font-weight: 500; color: var(--text-color); }
+        .log-chat-info { font-style: italic; }
+        .log-id { user-select: all; cursor: pointer; font-family: monospace; background-color: var(--bg-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); margin-left: 8px; font-size: 12px;}
+        .log-trigger { font-family: monospace; background: var(--bg-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); }
+        .log-actions button {
+            width: auto; font-size: 12px; font-weight: 500; padding: 4px 10px; margin-right: 8px;
+            background-color: var(--bg-color); color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+        }
+        .log-actions button:hover { background-color: var(--accent-color); color: var(--bg-color); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--panel-color); }
+        ::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 10px; border: 2px solid var(--panel-color); }
+    </style>
+</head>
+<body>
+    <div class="dashboard-grid">
+        <div class="dashboard-panel broadcast">
+            <h2>Broadcast Message</h2>
+            <form id="broadcast-form">
+                <div class="form-group">
+                    <label for="broadcastChatId">Chat ID</label>
+                    <input type="text" id="broadcastChatId" name="chatId" required placeholder="Click 'To Broadcast' in Live Feed">
+                </div>
+                <div class="form-group">
+                    <label for="broadcastMessage">Message</label>
+                    <textarea id="broadcastMessage" name="message" required placeholder="Type your announcement here..."></textarea>
+                </div>
+                <button type="submit">Send Broadcast</button>
+                <div id="broadcast-status" class="status-message"></div>
+            </form>
+        </div>
+        
+        <div class="dashboard-panel reply">
+            <h2>Direct Reply</h2>
+            <form id="reply-form">
+                <div class="form-group">
+                    <label for="replyChatId">Chat ID</label>
+                    <input type="text" id="replyChatId" name="chatId" required placeholder="Click 'To Reply' in Live Feed">
+                </div>
+                <div class="form-group">
+                    <label for="replyMessageId">Message ID</label>
+                    <input type="text" id="replyMessageId" name="messageId" required placeholder="Click 'To Reply' in Live Feed">
+                </div>
+                <div class="form-group">
+                    <label for="replyMessage">Your Reply</label>
+                    <textarea id="replyMessage" name="message" required placeholder="Type your custom reply here..."></textarea>
+                </div>
+                <button type="submit">Send Reply</button>
+                <div id="reply-status" class="status-message"></div>
+            </form>
+        </div>
+
+        <div class="dashboard-panel activity">
+            <h2>
+                <span>Live Bot Activity</span>
+                <a href="/manager">Manage Responses &rarr;</a>
+            </h2>
+            <div id="feed-container" class="scrollable-content"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            async function handleFormSubmit(form, endpoint, statusElement) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    statusElement.textContent = 'Sending...';
+                    statusElement.className = 'status-message';
+                    const data = Object.fromEntries(new FormData(form).entries());
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        statusElement.className = 'status-message success';
+                        statusElement.textContent = result.message || 'Success!';
+                        form.reset();
+                    } else {
+                        statusElement.className = 'status-message error';
+                        statusElement.textContent = 'Error: ' + result.error;
+                    }
+                    setTimeout(() => statusElement.textContent = '', 3000);
+                });
+            }
+
+            handleFormSubmit(document.getElementById('broadcast-form'), '/api/broadcast', document.getElementById('broadcast-status'));
+            handleFormSubmit(document.getElementById('reply-form'), '/api/reply', document.getElementById('reply-status'));
+
+            const feedContainer = document.getElementById('feed-container');
+            const eventSource = new EventSource('/events');
+
+            eventSource.onmessage = (event) => {
+                const log = JSON.parse(event.data);
+                const logElement = document.createElement('div');
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                
+                let logBodyHtml = '';
+                const userSpan = `<span class="log-user">${log.user}</span>`;
+                const triggerSpan = `<span class="log-trigger">${log.trigger}</span>`;
+                let logClass = 'log-entry';
+                let typeClass = 'log-type';
+                let icon = '💬';
+
+                // ############ THE FIX IS HERE ############
+                switch (log.eventType) {
+                    case 'Triggered Response':
+                        icon = '✅';
+                        logBodyHtml = `${userSpan} triggered response with ${triggerSpan}`;
+                        break;
+                    case 'New User':
+                        icon = '🚀';
+                        logClass = 'log-entry log-entry--system';
+                        typeClass = 'log-type log-type--system';
+                        logBodyHtml = `${userSpan} started the bot.`;
+                        break;
+                    case 'ADMIN_ACTION':
+                        icon = '⚙️';
+                        logClass = 'log-entry log-entry--admin';
+                        typeClass = 'log-type log-type--admin';
+                        logBodyHtml = `${userSpan} performed action: ${triggerSpan}`;
+                        break;
+                    case 'DM Message':
+                        icon = '✉️';
+                        logBodyHtml = `${userSpan} sent a DM: ${triggerSpan}`;
+                        break;
+                    case 'Reply to Bot':
+                        icon = '↪️';
+                        logBodyHtml = `${userSpan} replied to the bot: ${triggerSpan}`;
+                        break;
+                    default:
+                        logBodyHtml = `${userSpan} sent message: ${triggerSpan}`;
+                        break;
+                }
+                logElement.className = logClass;
+
+                // We show action buttons for DMs and Replies now
+                let actionsHtml = `
+                    <div class="log-actions">
+                        <button class="send-to-reply-btn">To Reply</button>
+                        <button class="send-to-broadcast-btn">To Broadcast</button>
+                    </div>`;
+                if (['ADMIN_ACTION', 'New User'].includes(log.eventType)) {
+                    actionsHtml = ''; 
+                }
+                
+                // For DM messages, we only want a reply button, not broadcast
+                if (log.eventType === 'DM Message') {
+                    actionsHtml = `
+                    <div class="log-actions">
+                        <button class="send-to-reply-btn">To Reply</button>
+                    </div>`;
+                }
+
+
+                logElement.innerHTML = `
+                    <div class="log-header">
+                        <span class="${typeClass}"><span class="icon">${icon}</span> ${log.eventType}</span>
+                        <span class="log-time">${time}</span>
+                    </div>
+                    <div class="log-body">${logBodyHtml}</div>
+                    <div class="log-body">
+                        <span class="log-chat-info">In: ${log.chatInfo}</span>
+                        ${log.chatId ? `<span class="log-id" title="Chat ID">#${log.chatId}</span>` : ''}
+                        ${log.messageId ? `<span class="log-id" title="Message ID">Msg: ${log.messageId}</span>` : ''}
+                    </div>
+                    ${actionsHtml}`;
+                
+                // Re-add event listeners since we re-created the buttons
+                if (logElement.querySelector('.send-to-reply-btn')) {
+                    logElement.querySelector('.send-to-reply-btn').addEventListener('click', () => {
+                        document.getElementById('replyChatId').value = log.chatId;
+                        document.getElementById('replyMessageId').value = log.messageId;
+                        document.getElementById('replyMessage').focus();
+                    });
+                }
+                if (logElement.querySelector('.send-to-broadcast-btn')) {
+                     logElement.querySelector('.send-to-broadcast-btn').addEventListener('click', () => {
+                        document.getElementById('broadcastChatId').value = log.chatId;
+                        document.getElementById('broadcastMessage').focus();
+                    });
+                }
+                
+                feedContainer.prepend(logElement);
+            };
+            eventSource.onerror = () => { console.error('EventSource failed.'); };
+        });
+    </script>
+</body>
+</html>
