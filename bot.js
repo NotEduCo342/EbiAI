@@ -6,7 +6,7 @@ const { loadData, registerHandlers } = require('./src/handlers/eventHandlers');
 const { getKnownChats } = require('./src/utils/helpers');
 
 // --- Bot Initialization ---
-const bot = new Telegraf(process.env.BOT_TOKEN || '7966271636:AAFEoYXxtFk-IRfSl_wv48jMxaeAWZ8FmH4'); // Remember to replace your token
+const bot = new Telegraf(process.env.BOT_TOKEN || '');
 let eventLogger = () => {}; // This will be set by server.js
 
 // --- Data Loading ---
