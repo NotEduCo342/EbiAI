@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Statistics - Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: rgb(18, 18, 18); --panel-color: rgb(28, 28, 30);
+            --border-color: rgba(197, 168, 128, 0.2); --text-color: rgb(229, 229, 231);
+            --text-secondary-color: rgb(160, 160, 165); --accent-color: rgb(197, 168, 128);
+            --error-color: #dc3545; /* Added a color for failures */
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif; background-color: var(--bg-color);
+            color: var(--text-color); margin: 0; padding: 40px;
+        }
+        .container { max-width: 1200px; margin: auto; }
+        .dashboard-panel {
+            background-color: var(--panel-color); border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 30px; margin-bottom: 40px;
+        }
+        h2 {
+            font-size: 24px; margin-top: 0; padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .nav-links { text-align: center; margin-bottom: 20px; }
+        .nav-links a { color: var(--accent-color); text-decoration: none; font-weight: 500; margin: 0 15px; }
+        .nav-links a:hover { text-decoration: underline; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Adjusted for more cards */
+            gap: 20px;
+        }
+        .stat-card {
+            background-color: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px; /* Slightly smaller for more cards */
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        .stat-value.error {
+            color: var(--error-color);
+        }
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary-color);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .range-selector button {
+            background-color: var(--bg-color); color: var(--text-secondary-color);
+            border: 1px solid var(--border-color); padding: 8px 16px;
+            border-radius: 6px; cursor: pointer; transition: all 0.2s;
+            margin-left: 10px; font-size: 14px;
+        }
+        .range-selector button:hover { background-color: var(--panel-color); }
+        .range-selector button.active {
+            background-color: var(--accent-color); color: var(--bg-color);
+            border-color: var(--accent-color); font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-links">
+            <a href="/">&larr; Live Feed</a>
+            <a href="/manager">Response Manager</a>
+        </div>
+
+        <div class="dashboard-panel">
+            <h2>
+                <span id="chart-title">Activity Last 30 Days</span>
+                <div class="range-selector">
+                    <button id="btn-7d">Last 7 Days</button>
+                    <button id="btn-30d" class="active">Last 30 Days</button>
+                </div>
+            </h2>
+            <div class="chart-container">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+
+        <div class="dashboard-panel">
+            <h2>Live Activity & Health (Today)</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="messages-processed" class="stat-value">...</div>
+                    <div class="stat-label">Messages Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div id="ai-responses" class="stat-value">...</div>
+                    <div class="stat-label">AI Handled</div>
+                </div>
+                 <div class="stat-card">
+                    <div id="search-calls" class="stat-value">...</div>
+                    <div class="stat-label">Web Searches</div>
+                </div>
+                <div class="stat-card">
+                    <div id="tokens-used" class="stat-value">...</div>
+                    <div class="stat-label">Tokens Used</div>
+                </div>
+                <div class="stat-card">
+                    <div id="estimated-cost" class="stat-value">...</div>
+                    <div class="stat-label">Est. Cost (USD)</div>
+                </div>
+                <div class="stat-card">
+                    <div id="ai-failures" class="stat-value error">...</div>
+                    <div class="stat-label">AI Failures</div>
+                </div>
+                <div class="stat-card">
+                    <div id="search-failures" class="stat-value error">...</div>
+                    <div class="stat-label">Search Failures</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-panel">
+            <h2>Bot Knowledge Base</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="smart-responses" class="stat-value">...</div>
+                    <div class="stat-label">Smart Responses</div>
+                </div>
+                <div class="stat-card">
+                    <div id="exact-responses" class="stat-value">...</div>
+                    <div class="stat-label">Exact Match Responses</div>
+                </div>
+                <div class="stat-card">
+                    <div id="total-responses" class="stat-value">...</div>
+                    <div class="stat-label">Total DB Responses</div>
+                </div>
+                <div class="stat-card">
+                    <div id="memories" class="stat-value">...</div>
+                    <div class="stat-label">Loaded Memories</div>
+                </div>
+                <div class="stat-card">
+                    <div id="known-chats" class="stat-value">...</div>
+                    <div class="stat-label">Known Group Chats</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activityChart = null;
+
+        async function fetchAndRender(range = '30d') {
+            try {
+                const response = await fetch(`/api/stats?range=${range}`);
+                const stats = await response.json();
+
+                // Populate Static and Live Stats
+                document.getElementById('smart-responses').textContent = stats.smartResponses;
+                document.getElementById('exact-responses').textContent = stats.exactResponses;
+                document.getElementById('total-responses').textContent = stats.totalResponses;
+                document.getElementById('memories').textContent = stats.memories;
+                document.getElementById('known-chats').textContent = stats.knownChats;
+                document.getElementById('messages-processed').textContent = stats.messagesProcessed;
+                document.getElementById('ai-responses').textContent = stats.aiResponses;
+                document.getElementById('search-calls').textContent = stats.searchCalls;
+
+                // --- POPULATE NEW CARDS ---
+                document.getElementById('tokens-used').textContent = stats.tokensUsed.toLocaleString(); // Format with commas
+                // Format cost to 6 decimal places for small values
+                document.getElementById('estimated-cost').textContent = `$${stats.estimatedCost.toFixed(6)}`;
+                document.getElementById('ai-failures').textContent = stats.aiFailures;
+                document.getElementById('search-failures').textContent = stats.searchFailures;
+
+
+                // --- CHART LOGIC ---
+                const historicalData = stats.historicalData.reverse();
+                const chartLabels = historicalData.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                const chartMessages = historicalData.map(d => d.messagesProcessed);
+                const chartAI = historicalData.map(d => d.aiResponses);
+                const chartSearch = historicalData.map(d => d.searchCalls);
+                
+                document.getElementById('chart-title').textContent = `Activity Last ${range === '7d' ? '7' : '30'} Days`;
+
+                const ctx = document.getElementById('activityChart').getContext('2d');
+                if (activityChart) {
+                    activityChart.data.labels = chartLabels;
+                    activityChart.data.datasets[0].data = chartMessages;
+                    activityChart.data.datasets[1].data = chartAI;
+                    activityChart.data.datasets[2].data = chartSearch;
+                    activityChart.update();
+                } else {
+                    activityChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [
+                                {
+                                    label: 'Total Messages', data: chartMessages,
+                                    borderColor: 'rgb(197, 168, 128)', backgroundColor: 'rgba(197, 168, 128, 0.2)',
+                                    fill: true, tension: 0.4,
+                                },
+                                {
+                                    label: 'AI Responses', data: chartAI,
+                                    borderColor: 'rgb(100, 100, 220)', tension: 0.4,
+                                },
+                                {
+                                    label: 'Web Searches', data: chartSearch,
+                                    borderColor: 'rgb(220, 100, 100)', tension: 0.4,
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            scales: {
+                                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                                x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                            }
+                        }
+                    });
+                }
+            } catch (error) { console.error('Failed to fetch stats:', error); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn7d = document.getElementById('btn-7d');
+            const btn30d = document.getElementById('btn-30d');
+            
+            fetchAndRender('30d');
+
+            btn7d.addEventListener('click', () => {
+                fetchAndRender('7d');
+                btn7d.classList.add('active');
+                btn30d.classList.remove('active');
+            });
+
+            btn30d.addEventListener('click', () => {
+                fetchAndRender('30d');
+                btn30d.classList.add('active');
+                btn7d.classList.remove('active');
+            });
+
+            setInterval(() => {
+                 fetchAndRender(btn7d.classList.contains('active') ? '7d' : '30d');
+            }, 10000);
+        });
+    </script>
+</body>
+</html>

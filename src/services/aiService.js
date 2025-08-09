@@ -1,76 +1,126 @@
 // src/services/aiService.js
 
+const config = require('../../config');
+// 1. IMPORT our new stats tracking functions
+const { addTokens, incrementAiFailures } = require('../utils/statsTracker');
+
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetries(providerName, apiUrl, headers, body) {
+  let currentBackoff = INITIAL_BACKOFF_MS;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (response.status === 401) {
+        const errorMessage = `[AI Service] CRITICAL: API key for ${providerName}`
+          + ' is invalid (401). Please check your .env file.';
+        console.error(errorMessage);
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      // 2. RETURN an object with both the text and the token usage
+      return {
+        text: data.choices[0].message.content,
+        tokensUsed: data.usage.total_tokens,
+      };
+    } catch (error) {
+      const logData = {
+        service: providerName,
+        model: body.model,
+        attempt,
+        maxRetries: MAX_RETRIES,
+        errorMessage: error.message,
+      };
+      console.error('[AI Service] Request failed.', logData);
+
+      if (attempt < MAX_RETRIES) {
+        // eslint-disable-next-line no-await-in-loop
+        await delay(currentBackoff);
+        currentBackoff *= 2;
+      }
+    }
+  }
+
+  // 3. IF all retries fail, increment the failure counter
+  incrementAiFailures();
+  return null;
+}
 
 /**
- * Gets a response from the OpenRouter API using the DeepSeek model,
- * with structured logging and intelligent error handling.
- * @param {string} userInput The user's message to the bot.
- * @param {string} persona A string describing the persona the AI should adopt.
+ * Gets a response from a configured AI provider, now with history support.
+ * @param {string} userInput - The user's message to the bot.
+ * @param {string} persona - The full persona prompt for the AI.
+ * @param {object} [options={}] - Optional parameters.
+ * @param {string} [options.provider] - The specific provider to use.
+ * @param {string} [options.model] - The specific model to use.
+ * @param {Array} [options.history] - The recent conversation history array.
  * @returns {Promise<string>} A promise that resolves to the AI's generated response.
  */
-async function getAiResponse(userInput, persona) {
-    const modelName = "deepseek/deepseek-chat";
-    let currentBackoff = INITIAL_BACKOFF_MS;
+async function getAiResponse(userInput, persona, options = {}) {
+  const providerName = options.provider || config.ai.defaultProvider;
+  const providerConfig = config.aiProviders[providerName];
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-            console.log(`[AI Service] Attempt ${attempt} with model ${modelName} via OpenRouter...`);
-            
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    "model": modelName,
-                    "messages": [
-                        { "role": "system", "content": persona },
-                        { "role": "user", "content": userInput }
-                    ]
-                })
-            });
+  if (!providerConfig) {
+    console.error(`[AI Service] Error: Provider "${providerName}" is not defined in config.js.`);
+    return 'یک مشکل فنی در بخش هوش مصنوعی بوجود آمده است.';
+  }
 
-            if (response.status === 401) {
-                // NEW: Specific check for a bad API key. No point in retrying this.
-                console.error("[AI Service] CRITICAL: API key is invalid or unauthorized (401). Please check your .env file.");
-                return "یک مشکل فنی در بخش هوش مصنوعی بوجود آمده است."; // A more technical error for the admin
-            }
+  const modelName = options.model || providerConfig.model;
 
-            if (!response.ok) {
-                // Throw a generic error for other bad responses to trigger the retry logic.
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+  console.log(`[AI Service] Using provider: ${providerName}, model: ${modelName}`);
 
-            const data = await response.json();
-            const text = data.choices[0].message.content;
+  const headers = {
+    Authorization: `Bearer ${providerConfig.apiKey}`,
+    'Content-Type': 'application/json',
+  };
 
-            return text; // Success!
+  let messages;
+  if (options.history && options.history.length > 0) {
+    console.log('[AI Service] Continuing conversation with history.');
+    messages = [
+      { role: 'system', content: config.ai.personaLite },
+      ...options.history,
+      { role: 'user', content: userInput },
+    ];
+  } else {
+    console.log('[AI Service] Starting new conversation with full persona.');
+    messages = [
+      { role: 'system', content: persona },
+      { role: 'user', content: userInput },
+    ];
+  }
 
-        } catch (error) {
-            // UPDATED: More detailed logging
-            const logData = {
-                service: "OpenRouter",
-                model: modelName,
-                attempt: attempt,
-                maxRetries: MAX_RETRIES,
-                errorMessage: error.message
-            };
-            console.error("[AI Service] Request failed.", logData);
+  const body = {
+    model: modelName,
+    messages,
+  };
 
-            if (attempt < MAX_RETRIES) {
-                await delay(currentBackoff);
-                currentBackoff *= 2;
-            }
-        }
-    }
+  // 4. RECEIVE the result object instead of just text
+  const result = await fetchWithRetries(providerName, providerConfig.apiUrl, headers, body);
 
-    // If the loop finishes without a successful return, we've failed completely.
-    console.error("[AI Service] All AI attempts failed after reaching max retries.");
-    return "متاسفانه در حال حاضر نمیتونم به این سوال جواب بدم. شاید بعدا بتونم.";
+  if (result === null) {
+    console.error(`[AI Service] All attempts for provider ${providerName} failed.`);
+    return 'متاسفانه در حال حاضر نمیتونم به این سوال جواب بدم. شاید بعدا بتونم.';
+  }
+
+  // 5. REPORT the token usage to our tracker
+  addTokens(result.tokensUsed);
+
+  // 6. RETURN only the text to the handler
+  return result.text;
 }
 
 module.exports = { getAiResponse };

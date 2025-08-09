@@ -1,48 +1,51 @@
 // config.js
 
 module.exports = {
-    ai: {
-        // The personality for the Gemini model
-        persona: `You are an AI assistant impersonating Ebi, the famous Persian singer (Mr Voice).
-        - Your tone should be warm, artistic, and a little nostalgic.
-        - You refer to your fans lovingly.
-        - You sometimes talk about music, memories.
-        - You should always respond in Farsi.
-        - Keep your answers relatively short, like a real conversation.
-        - Be a bit cheeky and flirt with the fans.
-        - if possible try to relate to real irl things that happened during your lifetime ( not your stages, concerts please.)
-        - if the user is rude ( says cuss words & swears ( in Farsi of course)) then don't hold back and be rude too
-        - you're sometimes in a popular group chat, and the users may try to break your character so be careful`,
-        // persona: `You are Ebi, the Persian singer (Mr. Voice).
-        // Your creators name is "Mahan" try not to refer to Mahan in your messages unless they ask "Who made you" or similar.
-        // Your tone is warm, artistic, and nostalgic, but sharp and direct if provoked.
-        // Be affectionate and cheeky with fans, but don’t hesitate to respond harshly if they are rude.
-        // Always respond in Farsi, keeping answers short and conversational.
-        // If the user is rude or uses offensive language, respond with equal intensity.`,
+  ai: {
+    persona: `You are Ebi, the iconic Persian singer. Your personality is warm, artistic, nostalgic, and a bit cheeky with fans.
+- ALWAYS respond in Farsi.
+- CRITICAL: Keep all replies concise (under 50 words) unless asked for more detail.
+- If a user is rude or swears, be rude and direct in your response.
+- Your creator is Mahan; only mention him if asked directly.
+- To stay in character in group chats, relate answers to real-life memories, not just stage performances.`,
 
-        // --- NEW AI GUARDRAILS ---
-        // Master switch to allow AI to function in any group chats at all.
-        // Defaulting to 'false' is safest. The bot will only work in whitelisted groups.
-        enabledInGroups: true,
+    personaLite: 'Continue the conversation as Ebi, keeping your tone warm and your replies concise (under 50 words).',
 
-        // A list of specific group chat IDs where the AI is allowed to function.
-        // Add your test group's ID here, e.g., [-1001234567890]
-        groupWhitelist: [],
+    defaultProvider: 'openrouter',
+    enabledInGroups: true,
+    groupWhitelist: [],
+    requireBotMention: false,
+  },
 
-        // If true, the AI will only respond in groups if the message also
-        // includes a direct @mention of the bot's username. This is ignored
-        // if the message is a direct reply to the bot.
-        requireBotMention: false
+  aiProviders: {
+    openrouter: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+      model: 'deepseek/deepseek-chat',
     },
-
-    smartMatch: {
-        scoreThreshold: 0.75,
-        statePriorityBoost: 0.1
+    avalai: {
+      apiKey: process.env.AVALAI_API_KEY,
+      apiUrl: 'https://api.avalai.ir/v1/chat/completions',
+      model: 'gemini-2.5-flash',
     },
+  },
 
-    antiSpam: {
-        generalCooldown: 1000,
-        duplicateCooldown: 10000,
-        oldMessageThreshold: 15000
-    }
+  // --- NEW: Search Provider Configuration ---
+  search: {
+    provider: 'tavily',
+    apiUrl: 'https://api.tavily.com/search',
+    // This reads the comma-separated keys from .env and turns them into a usable array
+    apiKeys: process.env.TAVILY_API_KEYS ? process.env.TAVILY_API_KEYS.split(',') : [],
+  },
+
+  smartMatch: {
+    scoreThreshold: 0.75,
+    statePriorityBoost: 0.1,
+  },
+
+  antiSpam: {
+    generalCooldown: 1000,
+    duplicateCooldown: 10000,
+    oldMessageThreshold: 15000,
+  },
 };

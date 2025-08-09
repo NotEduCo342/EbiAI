@@ -9,7 +9,6 @@ const fullLogFilePath = path.join(__dirname, '..', '..', 'unanswered_questions_f
 const textLogFilePath = path.join(__dirname, '..', '..', 'unanswered_questions_text.txt');
 const potentialFalsePositivesFilePath = path.join(__dirname, '..', '..', 'potential_false_positives.jsonl');
 
-
 // --- IMPROVEMENT: Standardized Error Logger ---
 /**
  * A standardized function for logging errors to the console.
@@ -17,9 +16,8 @@ const potentialFalsePositivesFilePath = path.join(__dirname, '..', '..', 'potent
  * @param {Error} error The error object.
  */
 function logError(functionName, error) {
-    console.error(`[ERROR in ${functionName}]`, error.message);
+  console.error(`[ERROR in ${functionName}]`, error.message);
 }
-
 
 // --- Chat Logging (Now using the Database) ---
 /**
@@ -27,13 +25,13 @@ function logError(functionName, error) {
  * @returns {Promise<number[]>} A promise that resolves to an array of chat IDs.
  */
 async function getKnownChats() {
-    try {
-        const rows = await db.all("SELECT chatId FROM known_chats");
-        return rows.map(r => r.chatId);
-    } catch (err) {
-        logError('getKnownChats', err);
-        return []; // Return an empty array on failure to prevent crashes
-    }
+  try {
+    const rows = await db.all('SELECT chatId FROM known_chats');
+    return rows.map((r) => r.chatId);
+  } catch (err) {
+    logError('getKnownChats', err);
+    return []; // Return an empty array on failure to prevent crashes
+  }
 }
 
 /**
@@ -41,21 +39,20 @@ async function getKnownChats() {
  * @param {number} chatId The ID of the chat to log.
  */
 function logChatIfNew(chatId) {
-    if (typeof chatId !== 'number' || chatId > 0) return;
+  if (typeof chatId !== 'number' || chatId > 0) return;
 
-    const sql = `INSERT OR IGNORE INTO known_chats (chatId) VALUES (?)`;
-    // This is a "fire-and-forget" operation, we don't need to await it.
-    db.run(sql, [chatId])
-      .then(result => {
-          if (result.changes > 0) {
-              console.log(`[DB] New group chat saved: ${chatId}`);
-          }
-      })
-      .catch(err => {
-          logError('logChatIfNew', err);
-      });
+  const sql = 'INSERT OR IGNORE INTO known_chats (chatId) VALUES (?)';
+  // This is a "fire-and-forget" operation, we don't need to await it.
+  db.run(sql, [chatId])
+    .then((result) => {
+      if (result.changes > 0) {
+        console.log(`[DB] New group chat saved: ${chatId}`);
+      }
+    })
+    .catch((err) => {
+      logError('logChatIfNew', err);
+    });
 }
-
 
 // --- File-Based Logging (Now using Append-Only) ---
 /**
@@ -64,26 +61,26 @@ function logChatIfNew(chatId) {
  * @param {object} ctx The Telegraf context object.
  */
 function logUnansweredQuestion(ctx) {
-    const update = ctx.update.message || ctx.update.edited_message;
-    if (!update) return;
+  const update = ctx.update.message || ctx.update.edited_message;
+  if (!update) return;
 
-    // --- Log the full message object ---
+  // --- Log the full message object ---
+  try {
+    const fullLogLine = `${JSON.stringify(update)}\n`;
+    fs.appendFileSync(fullLogFilePath, fullLogLine);
+  } catch (error) {
+    logError('logUnansweredQuestion (full)', error);
+  }
+
+  // --- Log ONLY the message text ---
+  if (update.text && typeof update.text === 'string') {
     try {
-        const fullLogLine = JSON.stringify(update) + '\n';
-        fs.appendFileSync(fullLogFilePath, fullLogLine);
+      const textLogLine = `${update.text}\n`;
+      fs.appendFileSync(textLogFilePath, textLogLine);
     } catch (error) {
-        logError('logUnansweredQuestion (full)', error);
+      logError('logUnansweredQuestion (text)', error);
     }
-
-    // --- Log ONLY the message text ---
-    if (update.text && typeof update.text === 'string') {
-        try {
-            const textLogLine = update.text + '\n';
-            fs.appendFileSync(textLogFilePath, textLogLine);
-        } catch (error) {
-            logError('logUnansweredQuestion (text)', error);
-        }
-    }
+  }
 }
 
 /**
@@ -91,13 +88,13 @@ function logUnansweredQuestion(ctx) {
  * @param {object} logEntry The complete log object to save.
  */
 function logPotentialFalsePositive(logEntry) {
-    if (typeof logEntry !== 'object' || logEntry === null) return;
-    try {
-        const logLine = JSON.stringify(logEntry) + '\n';
-        fs.appendFileSync(potentialFalsePositivesFilePath, logLine);
-    } catch (error) {
-        logError('logPotentialFalsePositive', error);
-    }
+  if (typeof logEntry !== 'object' || logEntry === null) return;
+  try {
+    const logLine = `${JSON.stringify(logEntry)}\n`;
+    fs.appendFileSync(potentialFalsePositivesFilePath, logLine);
+  } catch (error) {
+    logError('logPotentialFalsePositive', error);
+  }
 }
 
 /**
@@ -108,30 +105,30 @@ function logPotentialFalsePositive(logEntry) {
  * @returns {object} A standardized log object.
  */
 function createLogEntry(ctx, eventType, trigger = '') {
-    const from = ctx.from;
-    const chat = ctx.chat;
-    const update = ctx.update.message || ctx.update.edited_message;
-    
-    logChatIfNew(chat.id);
+  const { from } = ctx;
+  const { chat } = ctx;
+  const update = ctx.update.message || ctx.update.edited_message;
 
-    const chatInfo = (chat.type === 'group' || chat.type === 'supergroup') 
-        ? `Group: ${chat.title}` 
-        : 'Direct Message';
-    
-    const userName = from.username 
-        ? `@${from.username}` 
-        : `${from.first_name} ${from.last_name || ''}`.trim();
-    
-    return {
-        eventType,
-        user: userName,
-        userId: from.id,
-        chatInfo,
-        chatId: chat.id,
-        messageId: update.message_id,
-        trigger: trigger || update.text,
-        timestamp: new Date().toISOString()
-    };
+  logChatIfNew(chat.id);
+
+  const chatInfo = (chat.type === 'group' || chat.type === 'supergroup')
+    ? `Group: ${chat.title}`
+    : 'Direct Message';
+
+  const userName = from.username
+    ? `@${from.username}`
+    : `${from.first_name} ${from.last_name || ''}`.trim();
+
+  return {
+    eventType,
+    user: userName,
+    userId: from.id,
+    chatInfo,
+    chatId: chat.id,
+    messageId: update.message_id,
+    trigger: trigger || update.text,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 /**
@@ -140,20 +137,19 @@ function createLogEntry(ctx, eventType, trigger = '') {
  * @returns {string} The normalized text.
  */
 function normalizeText(text) {
-    if (!text) return '';
-    return text
-        .toLowerCase()
-        .replace(/[\s,.!?؟،]+/g, ' ')
-        .replace(/آ/g, 'ا')
-        .replace(/[یي]/g, 'ی')
-        .trim();
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/[\s,.!?؟،]+/g, ' ')
+    .replace(/آ/g, 'ا')
+    .replace(/[یي]/g, 'ی')
+    .trim();
 }
 
-
 module.exports = {
-    getKnownChats,
-    logUnansweredQuestion,
-    logPotentialFalsePositive,
-    createLogEntry,
-    normalizeText
+  getKnownChats,
+  logUnansweredQuestion,
+  logPotentialFalsePositive,
+  createLogEntry,
+  normalizeText,
 };

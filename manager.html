@@ -130,61 +130,123 @@
             </div>
         </div>
     </div>
+    
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const responseForm = document.getElementById('add-response-form');
+    const importForm = document.getElementById('import-json-form');
+    const responsesList = document.getElementById('responses');
+    const importStatus = document.getElementById('import-status');
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const responseForm = document.getElementById('add-response-form');
-            const responsesList = document.getElementById('responses');
-            
-            const fetchResponses = async () => {
-                // ... (This function is the same as before)
-            };
+    // Function to fetch and display all current responses
+    const fetchResponses = async () => {
+      try {
+        const res = await fetch('/api/responses');
+        const data = await res.json();
+        responsesList.innerHTML = ''; // Clear the list before repopulating
+        data.forEach((item) => {
+          const li = document.createElement('li');
+          const triggerText = Array.isArray(item.trigger) ? item.trigger[0] : item.trigger;
+          const responseText = Array.isArray(item.response) ? item.response[0] : item.response;
 
-            responseForm.addEventListener('submit', async (e) => {
-                // ... (This function is the same as before)
-            });
-            
-            // NEW: Event listener for the JSON import form
-            const importForm = document.getElementById('import-json-form');
-            const importStatus = document.getElementById('import-status');
-
-            importForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                importStatus.textContent = 'Importing...';
-                importStatus.className = 'status-message';
-                
-                const jsonData = document.getElementById('json-data').value;
-
-                try {
-                    // We wrap the raw text in a JSON object to send to the server
-                    const response = await fetch('/api/import', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ jsonData: jsonData }),
-                    });
-
-                    const result = await response.json();
-
-                    if (response.ok) {
-                        importStatus.className = 'status-message success';
-                        importStatus.textContent = result.message || 'Import successful!';
-                        importForm.reset();
-                        fetchResponses(); // Refresh the list
-                    } else {
-                        importStatus.className = 'status-message error';
-                        importStatus.textContent = 'Error: ' + result.error;
-                    }
-                } catch (err) {
-                    importStatus.className = 'status-message error';
-                    importStatus.textContent = 'Failed to send request. Is the JSON valid?';
-                    console.error("Import request failed:", err);
-                }
-                 setTimeout(() => importStatus.textContent = '', 5000);
-            });
-            // END OF NEW SCRIPT
-
-            fetchResponses();
+          li.innerHTML = `
+            <div>
+              <span class="trigger-text">${triggerText}...</span>
+              <span class="response-text">${responseText.substring(0, 20)}...</span>
+            </div>
+            <span>${item.matchType}</span>
+          `;
+          responsesList.appendChild(li);
         });
-    </script>
+      } catch (err) {
+        console.error('Failed to fetch responses:', err);
+      }
+    };
+
+    // --- THIS IS THE MISSING/BROKEN PART ---
+    // Event listener for the "Add Single Response" form
+    responseForm.addEventListener('submit', async (e) => {
+      e.preventDefault(); // Prevent the default browser form submission
+      
+      // Create a status message element if it doesn't exist
+      let statusElement = document.getElementById('add-status');
+      if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'add-status';
+        statusElement.className = 'status-message';
+        responseForm.appendChild(statusElement);
+      }
+      
+      statusElement.textContent = 'Adding...';
+      statusElement.className = 'status-message';
+
+      const formData = new FormData(responseForm);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        const response = await fetch('/api/responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          statusElement.className = 'status-message success';
+          statusElement.textContent = result.message || 'Response added successfully!';
+          responseForm.reset();
+          fetchResponses(); // Refresh the list of responses
+        } else {
+          statusElement.className = 'status-message error';
+          statusElement.textContent = `Error: ${result.error}`;
+        }
+      } catch (err) {
+        statusElement.className = 'status-message error';
+        statusElement.textContent = 'Failed to send request.';
+        console.error('Add response request failed:', err);
+      }
+      setTimeout(() => { statusElement.textContent = ''; }, 5000);
+    });
+    // --- END OF THE FIX ---
+
+    // Event listener for the JSON import form
+    importForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      importStatus.textContent = 'Importing...';
+      importStatus.className = 'status-message';
+
+      const jsonData = document.getElementById('json-data').value;
+
+      try {
+        const response = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonData }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          importStatus.className = 'status-message success';
+          importStatus.textContent = result.message || 'Import successful!';
+          importForm.reset();
+          fetchResponses(); // Refresh the list
+        } else {
+          importStatus.className = 'status-message error';
+          importStatus.textContent = `Error: ${result.error}`;
+        }
+      } catch (err) {
+        importStatus.className = 'status-message error';
+        importStatus.textContent = 'Failed to send request. Is the JSON valid?';
+        console.error('Import request failed:', err);
+      }
+      setTimeout(() => { importStatus.textContent = ''; }, 5000);
+    });
+
+    // Initial load of responses when the page opens
+    fetchResponses();
+  });
+</script>
 </body>
 </html>
