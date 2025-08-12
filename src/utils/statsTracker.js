@@ -1,5 +1,6 @@
 // src/utils/statsTracker.js
 
+const logger = require('./logger');
 const stats = {
   // Existing live stats
   messagesProcessed: 0,
@@ -24,7 +25,7 @@ const COST_PER_TOKEN = 0.0000002;
  */
 const loadStats = (initialStats) => {
   if (initialStats) {
-    console.log('[Stats Tracker] Loading stats from database:', initialStats);
+    logger.info('[Stats Tracker] Loading stats from database:', initialStats);
     stats.messagesProcessed = initialStats.messagesProcessed || 0;
     stats.aiResponses = initialStats.aiResponses || 0;
     stats.searchCalls = initialStats.searchCalls || 0;
@@ -70,7 +71,7 @@ const getStats = () => stats;
 
 // Resets all live counters to zero
 const resetStats = () => {
-  console.log('[Stats Tracker] Resetting live counters.');
+  logger.info('[Stats Tracker] Resetting live counters.');
   Object.keys(stats).forEach((key) => {
     stats[key] = 0;
   });

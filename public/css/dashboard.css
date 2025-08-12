@@ -1,0 +1,248 @@
+/* public/css/dashboard.css */
+
+/* --- Universal Styles --- */
+:root {
+    --bg-color: rgb(18, 18, 18);
+    --panel-color: rgb(28, 28, 30);
+    --border-color: rgba(197, 168, 128, 0.2);
+    --text-color: rgb(229, 229, 231);
+    --text-secondary-color: rgb(160, 160, 165);
+    --accent-color: rgb(197, 168, 128);
+    --accent-hover-color: rgb(212, 185, 147);
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --admin-color: #6c5ce7;
+    --system-color: #0984e3;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px 40px;
+}
+
+.dashboard-panel {
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+h2 {
+    font-size: 24px;
+    margin-top: 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-links, .nav-link {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.nav-links a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+    margin: 0 15px;
+}
+
+.nav-links a:hover, .nav-link:hover {
+    text-decoration: underline;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-color);
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-top: 5px;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(197, 168, 128, 0.3);
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: var(--accent-hover-color);
+    transform: scale(1.02);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.status-message {
+    text-align: center;
+    margin-top: 15px;
+    font-weight: 500;
+    min-height: 1em;
+}
+
+.success { color: var(--success-color); }
+.error { color: var(--error-color); }
+
+.scrollable-content { overflow-y: auto; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--panel-color); }
+::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 10px; border: 2px solid var(--panel-color); }
+
+/* --- index.html Specific Styles --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    grid-template-rows: auto 1fr;
+    gap: 40px;
+    max-width: 1800px;
+    margin: auto;
+}
+.activity {
+    grid-column: 2 / 3;
+    grid-row: 1 / 3;
+}
+.log-entry { border-left: 4px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 0 8px 8px 0; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02), transparent); }
+.log-entry.log-entry--admin { border-left-color: var(--admin-color); }
+.log-entry.log-entry--system { border-left-color: var(--system-color); }
+.log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.log-type { font-weight: 700; font-size: 16px; }
+.log-type .icon { margin-right: 8px; }
+.log-type.log-type--admin { color: var(--admin-color); }
+.log-type.log-type--system { color: var(--system-color); }
+.log-time { font-size: 12px; color: var(--text-secondary-color); }
+.log-body { color: var(--text-secondary-color); margin-bottom: 12px; font-size: 14px; }
+.log-user { font-weight: 500; color: var(--text-color); }
+.log-chat-info { font-style: italic; }
+.log-id { user-select: all; cursor: pointer; font-family: monospace; background-color: var(--bg-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); margin-left: 8px; font-size: 12px; }
+.log-trigger { font-family: monospace; background: var(--bg-color); padding: 2px 6px; border-radius: 4px; color: var(--accent-color); }
+.log-actions button { width: auto; font-size: 12px; font-weight: 500; padding: 4px 10px; margin-right: 8px; background-color: var(--bg-color); color: var(--accent-color); border: 1px solid var(--accent-color); }
+.log-actions button:hover { background-color: var(--accent-color); color: var(--bg-color); }
+
+/* --- manager.html & stats.html Container --- */
+.container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+/* --- manager.html Specific Styles --- */
+.manager-grid { /* Using a unique name to avoid conflicts */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    max-width: 1800px;
+    margin: auto;
+}
+#response-list ul { list-style: none; padding: 0; margin: 0; max-height: 500px; overflow-y: auto; }
+#response-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 6px; background-color: var(--bg-color); margin-bottom: 10px; }
+.trigger-text { font-weight: 500; }
+.response-text { font-family: monospace; color: var(--text-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.exclusion-indicator { margin-left: 8px; cursor: help; }
+
+/* --- stats.html Specific Styles --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+}
+.stat-card { background-color: var(--bg-color); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
+.stat-value { font-size: 32px; font-weight: 700; color: var(--accent-color); margin-bottom: 10px; }
+.stat-value.error { color: var(--error-color); }
+.stat-label { font-size: 14px; color: var(--text-secondary-color); }
+.chart-container { position: relative; height: 400px; width: 100%; }
+.range-selector button { background-color: var(--bg-color); color: var(--text-secondary-color); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s; margin-left: 10px; font-size: 14px; }
+.range-selector button:hover { background-color: var(--panel-color); }
+.range-selector button.active { background-color: var(--accent-color); color: var(--bg-color); border-color: var(--accent-color); font-weight: 700; }
+/* --- Modal Styles --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 600px;
+}
+
+#add-response-form button[type="button"] {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+/* --- Brainstormer Checkbox & Inline Form --- */
+.question-actions .use-search-checkbox {
+    width: auto;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.form-group-inline {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+}
+
+.form-group-inline .form-group {
+    flex: 1;
+}
+
+#display-matchType, #display-type {
+    background-color: #333; /* Darker to show it's disabled */
+    cursor: not-allowed;
+}

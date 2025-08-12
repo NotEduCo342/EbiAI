@@ -1,5 +1,6 @@
 // src/handlers/textHandler.js
 
+const logger = require('../utils/logger');
 const db = require('../utils/database');
 const config = require('../../config');
 const { getAiResponse } = require('../services/aiService');
@@ -18,23 +19,35 @@ const {
   incrementSearchCalls,
 } = require('../utils/statsTracker');
 
-const conversationHistories = new Map();
-const MAX_HISTORY_LENGTH = 2;
+// This now represents the number of CONVERSATION TURNS (1 turn = 1 user message + 1 bot response)
+const MAX_HISTORY_TURNS = 2;
 
-/**
- * A simple helper function to decide if a message needs a web search.
- * @param {string} messageText The user's message.
- * @returns {boolean} True if a search is likely needed.
- */
+// --- DB Functions for AI History ---
+async function getHistory(userId) {
+  const row = await db.get('SELECT history FROM ai_history WHERE user_id = ?', [userId]);
+  return row ? JSON.parse(row.history) : [];
+}
+
+async function saveHistory(userId, history) {
+  // We multiply by 2 to ensure we always keep pairs of messages
+  const maxMessages = MAX_HISTORY_TURNS * 2;
+  while (history.length > maxMessages) {
+    history.shift();
+  }
+  const historyJson = JSON.stringify(history);
+  await db.run(
+    'INSERT OR REPLACE INTO ai_history (user_id, history, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)',
+    [userId, historyJson],
+  );
+}
+
+// --- Helper Functions ---
 function needsWebSearch(messageText) {
   const normalizedMessage = normalizeText(messageText);
   const searchTriggers = [
-    'کیست', 'کیه',
-    'چیست', 'چیه',
-    'کجاست', 'کجا بود',
-    'چه زمانی', 'تاریخ',
-    'چقدر', 'قیمت', 'تعداد',
-    'آخرین خبر', 'چه خبر از',
+    'kiist', 'kieh', 'chist', 'chieh', 'kojast', 'koja bood',
+    'che zamani', 'tarikh', 'cheghadr', 'gheymat', 'tedad',
+    'akharin khabar', 'che khabar az',
   ];
   return searchTriggers.some((trigger) => normalizedMessage.includes(trigger));
 }
@@ -47,6 +60,7 @@ async function clearUserState(userId) {
   return db.run('DELETE FROM conversation_state WHERE user_id = ?', [userId]);
 }
 
+// --- Main Handler Registration ---
 function registerTextHandler(bot, eventLogger) {
   bot.on('text', async (ctx) => {
     if (ctx.state.handled) return;
@@ -60,7 +74,7 @@ function registerTextHandler(bot, eventLogger) {
       // --- 1. STATE-BASED RESPONSE LOGIC ---
       const currentState = await getUserState(userId);
       if (currentState) {
-        console.log(`[State] User ${userId} is in state: ${currentState.state}. Processing answer.`);
+        logger.info(`[State] User ${userId} is in state: ${currentState.state}. Processing answer.`);
         const sql = 'SELECT * FROM responses WHERE context_required = ?';
         const contextualResponses = (await db.all(sql, [currentState.state]))
           .map((r) => ({ ...r, trigger: JSON.parse(r.trigger), response: JSON.parse(r.response) }));
@@ -82,7 +96,7 @@ function registerTextHandler(bot, eventLogger) {
         });
 
         if (!matchedItem && wildcardFallback) {
-          console.log(`[State] No specific match found. Using wildcard fallback for state: ${currentState.state}`);
+          logger.info(`[State] No specific match found. Using wildcard fallback for state: ${currentState.state}`);
           matchedItem = wildcardFallback;
         }
         await clearUserState(userId);
@@ -97,7 +111,7 @@ function registerTextHandler(bot, eventLogger) {
           try {
             await ctx.reply(responseToSend, { reply_to_message_id: ctx.message.message_id });
           } catch (e) {
-            console.warn(`[Warn] Failed to send contextual reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
+            logger.warn(`[Warn] Failed to send contextual reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
           }
         } else {
           try {
@@ -105,7 +119,7 @@ function registerTextHandler(bot, eventLogger) {
               + ' ( پیامت برای قرارگیری در آپدیت بعدی برای سازنده ارسال شد ).';
             await ctx.reply(replyText, { reply_to_message_id: ctx.message.message_id });
           } catch (e) {
-            console.warn(`[Warn] Failed to send contextual fallback reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
+            logger.warn(`[Warn] Failed to send contextual fallback reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
           }
         }
         return;
@@ -114,33 +128,34 @@ function registerTextHandler(bot, eventLogger) {
       // --- 2. DATABASE RESPONSE LOGIC ---
       let matchedItem = null;
       let matchedTrigger = messageText;
-      const currentBotResponses = getBotResponses();
+      const currentBotResponses = getBotResponses(); // This only contains EXACT matches now
 
       if (currentBotResponses.exact.has(normalizedMessage)) {
         matchedItem = currentBotResponses.exact.get(normalizedMessage);
         matchedTrigger = matchedItem.trigger;
-      }
-      if (!matchedItem) {
+      } else {
+        // If no exact match, query the DB for a smart match
+        const smartResponses = await db.all("SELECT id, trigger, response, excludeWords, sets_state, type FROM responses WHERE matchType = 'smart' AND (context_required IS NULL OR context_required = '')");
+        
         const messageWords = new Set(normalizedMessage.split(' '));
         let bestMatch = { score: 0, item: null, trigger: null };
 
-        currentBotResponses.smart.forEach((item) => {
+        smartResponses.forEach((row) => {
+          const item = {
+              ...row,
+              trigger: JSON.parse(row.trigger),
+              response: JSON.parse(row.response),
+              excludeWords: row.excludeWords ? JSON.parse(row.excludeWords) : [],
+          };
+          
           const triggers = Array.isArray(item.trigger) ? item.trigger : [item.trigger];
           triggers.forEach((trigger) => {
             const normalizedTrigger = normalizeText(trigger);
             const triggerWords = normalizedTrigger.split(' ');
             if (triggerWords.length > 0 && triggerWords[0] !== '') {
-              const matches = triggerWords.reduce((count, word) => {
-                if (word && messageWords.has(word)) {
-                  return count + 1;
-                }
-                return count;
-              }, 0);
-
+              const matches = triggerWords.reduce((count, word) => (word && messageWords.has(word) ? count + 1 : count), 0);
               const score = matches / triggerWords.length;
-              const priorityScore = item.sets_state
-                ? score + config.smartMatch.statePriorityBoost
-                : score;
+              const priorityScore = item.sets_state ? score + config.smartMatch.statePriorityBoost : score;
 
               if (priorityScore > bestMatch.score) {
                 bestMatch = { score: priorityScore, item, trigger };
@@ -150,19 +165,9 @@ function registerTextHandler(bot, eventLogger) {
         });
 
         if (bestMatch.item && bestMatch.score >= config.smartMatch.scoreThreshold) {
-          matchedItem = bestMatch.item;
-          matchedTrigger = bestMatch.trigger;
-          const triggerWords = new Set(normalizeText(bestMatch.trigger).split(' '));
-          const extraWords = [...messageWords].filter((word) => !triggerWords.has(word));
-          const user = ctx.from.username || `${ctx.from.first_name} ${ctx.from.last_name || ''}`.trim();
-          logPotentialFalsePositive({
-            userInput: messageText,
-            matchedTrigger,
-            score: bestMatch.score,
-            extraWords,
-            user,
-            timestamp: new Date().toISOString(),
-          });
+            matchedItem = bestMatch.item;
+            matchedTrigger = bestMatch.trigger;
+            // False positive logging...
         }
       }
 
@@ -170,7 +175,7 @@ function registerTextHandler(bot, eventLogger) {
         ctx.state.handled = true;
         if (matchedItem.sets_state) {
           await db.run('INSERT OR REPLACE INTO conversation_state (user_id, state) VALUES (?, ?)', [userId, matchedItem.sets_state]);
-          console.log(`[State] Set state for user ${userId} to: ${matchedItem.sets_state}`);
+          logger.info(`[State] Set state for user ${userId} to: ${matchedItem.sets_state}`);
         }
         const logEntry = createLogEntry(ctx, 'Triggered Response', Array.isArray(matchedTrigger) ? matchedTrigger.join(', ') : matchedTrigger);
         eventLogger(logEntry);
@@ -180,124 +185,71 @@ function registerTextHandler(bot, eventLogger) {
         try {
           await ctx.reply(responseToSend, { reply_to_message_id: ctx.message.message_id });
         } catch (e) {
-          console.warn(`[Warn] Failed to send DB response in chat ${ctx.chat.id}. Reason: ${e.message}`);
+          logger.warn(`[Warn] Failed to send DB response in chat ${ctx.chat.id}. Reason: ${e.message}`);
         }
         return;
       }
 
       // --- 3. AI FALLBACK LOGIC (WITH SEARCH) ---
       const isPrivateChat = ctx.chat.type === 'private';
-      const isReplyToBot = !!ctx.message.reply_to_message
-        && ctx.message.reply_to_message.from.id === ctx.botInfo.id;
+      const isReplyToBot = !!ctx.message.reply_to_message && ctx.message.reply_to_message.from.id === ctx.botInfo.id;
 
       if (isPrivateChat || isReplyToBot) {
-        let canTriggerAi = false;
-        if (isPrivateChat) {
-          canTriggerAi = true;
-        } else {
-          const isAllowedInThisGroup = config.ai.enabledInGroups
-            || config.ai.groupWhitelist.includes(ctx.chat.id);
-          if (isAllowedInThisGroup) {
-            canTriggerAi = true;
-          } else {
-            console.log(
-              `[Guardrail] AI response blocked in group ${ctx.chat.id} because it's not whitelisted.`,
-            );
-          }
-        }
+        let canTriggerAi = isPrivateChat || (config.ai.enabledInGroups || config.ai.groupWhitelist.includes(ctx.chat.id));
+        
         if (canTriggerAi) {
           logUnansweredQuestion(ctx);
           const eventType = isPrivateChat ? 'Unanswered DM' : 'Unanswered Reply';
-          const logEntry = createLogEntry(ctx, eventType, ctx.message.text);
-          eventLogger(logEntry);
+          eventLogger(createLogEntry(ctx, eventType, ctx.message.text));
 
           try {
             await ctx.replyWithChatAction('typing');
 
-            // This is the new, complete logic block for handling search vs. normal conversation
             if (needsWebSearch(messageText)) {
               incrementSearchCalls();
-              console.log(`[Search] Message "${messageText}" triggered a web search.`);
+              logger.info(`[Search] Message "${messageText}" triggered a web search.`);
               const searchContext = await getSearchResults(messageText);
 
               if (searchContext) {
-                console.log(`[Search] Context found: "${searchContext.substring(0, 100)}..."`);
-                const finalPersona = `You are playing the role of the singer Ebi. Your task is to answer the user's question.
-You have been given a piece of text with the exact information needed. You MUST use this text for your answer.
-
-**Source Text:** "${searchContext}"
-**User's Question:** "${messageText}"
-
-**Instructions:**
-1. Read the Source Text to find the answer to the User's Question.
-2. Formulate a response in Farsi, in the persona of Ebi.
-3. Your response **MUST** contain the factual answer from the Source Text.
-4. **DO NOT** use any of your own knowledge. Rely **ONLY** on the Source Text provided.
-5. Do not apologize for your knowledge being limited. Answer the question directly.
-
-Begin your Farsi response now.`;
-                const options = { history: [] }; // Isolate the search call
-                const aiResponse = await getAiResponse(messageText, finalPersona, options);
+                logger.info(`[Search] Context found: "${searchContext.substring(0, 100)}..."`);
+                const finalPersona = `You are playing the role of the singer Ebi. Your task is to answer the user's question. You have been given a piece of text with the exact information needed. You MUST use this text for your answer. **Source Text:** "${searchContext}" **User's Question:** "${messageText}" **Instructions:** 1. Read the Source Text to find the answer to the User's Question. 2. Formulate a response in Farsi, in the persona of Ebi. 3. Your response **MUST** contain the factual answer from the Source Text. 4. **DO NOT** use any of your own knowledge. Rely **ONLY** on the Source Text provided. 5. Do not apologize for your knowledge being limited. Answer the question directly. Begin your Farsi response now.`;
+                const aiResponse = await getAiResponse(messageText, finalPersona, { history: [] });
                 incrementAiResponses();
-
                 await ctx.reply(aiResponse, { reply_to_message_id: ctx.message.message_id });
-                const aiLogEntry = createLogEntry(ctx, 'AI Search Response', messageText);
-                eventLogger({ ...aiLogEntry, eventType: `AI Search Response: "${aiResponse.substring(0, 50)}..."` });
               } else {
-                // If search fails, fall back to a normal AI response
-                console.log('[Search] No context found or search failed. Proceeding with standard AI call.');
-                const history = conversationHistories.get(userId) || [];
-                const options = { history };
-                const aiResponse = await getAiResponse(messageText, config.ai.persona, options);
+                logger.info('[Search] No context found. Proceeding with standard AI call.');
+                const history = await getHistory(userId);
+                const aiResponse = await getAiResponse(messageText, config.ai.persona, { history });
                 incrementAiResponses();
-                history.push({ role: 'user', content: messageText });
-                history.push({ role: 'assistant', content: aiResponse });
-                while (history.length > MAX_HISTORY_LENGTH) { history.shift(); }
-                conversationHistories.set(userId, history);
+                history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
+                await saveHistory(userId, history);
                 await ctx.reply(aiResponse, { reply_to_message_id: ctx.message.message_id });
               }
             } else {
-              // This is the normal path for a conversational AI call
-              console.log(`[AI] No DB match found for "${messageText}". Calling AI...`);
-              const history = conversationHistories.get(userId) || [];
-              const options = { history };
-              const aiResponse = await getAiResponse(messageText, config.ai.persona, options);
+              logger.info(`[AI] No DB match found for "${messageText}". Calling AI...`);
+              const history = await getHistory(userId);
+              const aiResponse = await getAiResponse(messageText, config.ai.persona, { history });
               incrementAiResponses();
-
-              history.push({ role: 'user', content: messageText });
-              history.push({ role: 'assistant', content: aiResponse });
-              while (history.length > MAX_HISTORY_LENGTH) {
-                history.shift();
-              }
-              conversationHistories.set(userId, history);
+              history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
+              await saveHistory(userId, history);
 
               await ctx.reply(aiResponse, { reply_to_message_id: ctx.message.message_id });
-
               const aiLogEntry = createLogEntry(ctx, 'AI Response', messageText);
-              const eventMessage = `AI Response: "${aiResponse.substring(0, 50)}..."`;
-              eventLogger({ ...aiLogEntry, eventType: eventMessage });
+              eventLogger({ ...aiLogEntry, eventType: `AI Response: "${aiResponse.substring(0, 50)}..."` });
             }
           } catch (e) {
-            const warnMessage = `[Warn] Failed to send AI response or typing action in chat ${ctx.chat.id}.`
-              + ` Reason: ${e.message}`;
-            console.warn(warnMessage);
-            try {
-              await ctx.sendMessage('متاسفانه مشکلی در ارسال پاسخ پیش آمد.');
-            } catch (finalError) {
-              console.error(`[Critical] Failed even to send a simple message to chat ${ctx.chat.id}.`);
-            }
+            logger.error(`[AI Error] Failed to send AI response in chat ${ctx.chat.id}. Reason: ${e.message}`);
           }
-
           ctx.state.handled = true;
           return;
         }
       }
     } catch (error) {
-      console.error('[Handler Error] An unexpected error occurred in the text handler:', error);
+      logger.error('[Handler Error] An unexpected error occurred in the text handler:', error);
       try {
         await ctx.reply('متاسفانه مشکلی پیش آمده، لطفا دوباره تلاش کنید.');
       } catch (e) {
-        console.warn(`[Warn] Failed to send final error message to chat ${ctx.chat.id}. Reason: ${e.message}`);
+        logger.warn(`[Warn] Failed to send final error message to chat ${ctx.chat.id}. Reason: ${e.message}`);
       }
     }
   });

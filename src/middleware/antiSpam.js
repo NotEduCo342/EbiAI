@@ -1,5 +1,7 @@
 // src/middleware/antiSpam.js
 
+
+const logger = require('../utils/logger');
 const config = require('../../config');
 // NEW: Import config
 const userHistory = new Map();
@@ -19,12 +21,12 @@ const antiSpamMiddleware = (ctx, next) => {
 
   // NEW: Using config value
   if (now - messageTimestamp > config.antiSpam.oldMessageThreshold) {
-    console.log(`[Ignored] Old message from ${userName} in ${chatTitle}.`);
+    logger.info(`[Ignored] Old message from ${userName} in ${chatTitle}.`);
     return;
   }
 
   if (update.reply_to_message && update.reply_to_message.from.id !== ctx.botInfo.id) {
-    console.log(`[Ignored] Reply from ${userName} in ${chatTitle} (was a reply to another user).`);
+    logger.info(`[Ignored] Reply from ${userName} in ${chatTitle} (was a reply to another user).`);
     return;
   }
 
@@ -37,12 +39,12 @@ const antiSpamMiddleware = (ctx, next) => {
 
     // NEW: Using config value
     if (now - lastTime < config.antiSpam.generalCooldown) {
-      console.log(`[Spam] General cooldown triggered by ${userName} in ${chatTitle}.`);
+      logger.info(`[Spam] General cooldown triggered by ${userName} in ${chatTitle}.`);
       return;
     }
     // NEW: Using config value
     if (messageText === lastText && now - lastTime < config.antiSpam.duplicateCooldown) {
-      console.log(`[Spam] Duplicate message cooldown triggered by ${userName} in ${chatTitle}.`);
+      logger.info(`[Spam] Duplicate message cooldown triggered by ${userName} in ${chatTitle}.`);
       return;
     }
   }

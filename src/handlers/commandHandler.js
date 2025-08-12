@@ -1,5 +1,6 @@
 // src/handlers/commandHandler.js
 
+const logger = require('../utils/logger');
 const { getMemories } = require('../utils/dataLoader'); // Import the getter function
 const { createLogEntry } = require('../utils/helpers');
 const { incrementMessagesProcessed } = require('../utils/statsTracker');
@@ -13,7 +14,7 @@ function registerCommandHandlers(bot, eventLogger) {
     try {
       await ctx.reply('Hello! I am your friendly bot. I am ready to go!');
     } catch (e) {
-      console.warn(`[Warn] Failed to send /start reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
+      logger.warn(`[Warn] Failed to send /start reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
     }
   });
 
@@ -29,7 +30,7 @@ function registerCommandHandlers(bot, eventLogger) {
     try {
       await ctx.reply(memoryMessage, { reply_to_message_id: ctx.message.message_id });
     } catch (e) {
-      console.warn(`[Warn] Failed to send /memory reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
+      logger.warn(`[Warn] Failed to send /memory reply in chat ${ctx.chat.id}. Reason: ${e.message}`);
     }
     const logEntry = createLogEntry(ctx, 'Triggered Response', '/memory');
     eventLogger(logEntry);

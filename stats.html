@@ -8,73 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --bg-color: rgb(18, 18, 18); --panel-color: rgb(28, 28, 30);
-            --border-color: rgba(197, 168, 128, 0.2); --text-color: rgb(229, 229, 231);
-            --text-secondary-color: rgb(160, 160, 165); --accent-color: rgb(197, 168, 128);
-            --error-color: #dc3545; /* Added a color for failures */
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif; background-color: var(--bg-color);
-            color: var(--text-color); margin: 0; padding: 40px;
-        }
-        .container { max-width: 1200px; margin: auto; }
-        .dashboard-panel {
-            background-color: var(--panel-color); border: 1px solid var(--border-color);
-            border-radius: 12px; padding: 30px; margin-bottom: 40px;
-        }
-        h2 {
-            font-size: 24px; margin-top: 0; padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .nav-links { text-align: center; margin-bottom: 20px; }
-        .nav-links a { color: var(--accent-color); text-decoration: none; font-weight: 500; margin: 0 15px; }
-        .nav-links a:hover { text-decoration: underline; }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Adjusted for more cards */
-            gap: 20px;
-        }
-        .stat-card {
-            background-color: var(--bg-color);
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 32px; /* Slightly smaller for more cards */
-            font-weight: 700;
-            color: var(--accent-color);
-            margin-bottom: 10px;
-        }
-        .stat-value.error {
-            color: var(--error-color);
-        }
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-secondary-color);
-        }
-        .chart-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-        }
-        .range-selector button {
-            background-color: var(--bg-color); color: var(--text-secondary-color);
-            border: 1px solid var(--border-color); padding: 8px 16px;
-            border-radius: 6px; cursor: pointer; transition: all 0.2s;
-            margin-left: 10px; font-size: 14px;
-        }
-        .range-selector button:hover { background-color: var(--panel-color); }
-        .range-selector button.active {
-            background-color: var(--accent-color); color: var(--bg-color);
-            border-color: var(--accent-color); font-weight: 700;
-        }
-    </style>
+    <link rel="stylesheet" href="/css/dashboard.css">
 </head>
 <body>
     <div class="container">
@@ -229,7 +163,7 @@
                         }
                     });
                 }
-            } catch (error) { console.error('Failed to fetch stats:', error); }
+            } catch (error) { logger.error('Failed to fetch stats:', error); }
         }
 
         document.addEventListener('DOMContentLoaded', () => {

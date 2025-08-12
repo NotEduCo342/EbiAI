@@ -1,5 +1,6 @@
 // src/handlers/eventHandlers.js
 
+const logger = require('../utils/logger');
 const eventBus = require('../utils/eventBus');
 const { loadData } = require('../utils/dataLoader');
 const { registerCommandHandlers } = require('./commandHandler');
@@ -19,14 +20,14 @@ async function registerHandlers(bot, eventLogger) {
   registerCommandHandlers(bot, eventLogger);
   registerTextHandler(bot, eventLogger);
 
-  console.log('[Handlers] All event handlers have been registered.');
+  logger.info('[Handlers] All event handlers have been registered.');
 }
 
 // Set up the listener to AWAIT the data reload.
 eventBus.on('reload_data', async () => {
-  console.log('[EventBus] Received reload_data signal. Reloading data...');
+  logger.info('[EventBus] Received reload_data signal. Reloading data...');
   await loadData();
-  console.log('[EventBus] Data reload complete.');
+  logger.info('[EventBus] Data reload complete.');
 });
 
 module.exports = { registerHandlers };

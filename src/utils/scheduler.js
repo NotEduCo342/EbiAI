@@ -1,5 +1,6 @@
 // src/utils/scheduler.js
 
+const logger = require('./logger');
 const db = require('./database');
 const statsTracker = require('./statsTracker');
 
@@ -11,7 +12,7 @@ async function saveDailyStats() {
   const liveStats = statsTracker.getStats();
   const today = new Date().toISOString().split('T')[0];
 
-  console.log(`[Scheduler] Saving stats for date: ${today}`);
+  logger.info(`[Scheduler] Saving stats for date: ${today}`);
   try {
     const sql = `
       INSERT INTO daily_stats (date, messagesProcessed, aiResponses, searchCalls)
@@ -31,9 +32,9 @@ async function saveDailyStats() {
       liveStats.aiResponses,
       liveStats.searchCalls,
     ]);
-    console.log('[Scheduler] Daily stats saved successfully.');
+    logger.info('[Scheduler] Daily stats saved successfully.');
   } catch (error) {
-    console.error('[Scheduler] Failed to save daily stats:', error.message);
+    logger.error('[Scheduler] Failed to save daily stats:', error.message);
   }
 }
 
@@ -47,10 +48,10 @@ async function initializeAndLoadStats() {
     if (todaysStats) {
       statsTracker.loadStats(todaysStats);
     } else {
-      console.log('[Scheduler] No stats found for today. Starting fresh.');
+      logger.info('[Scheduler] No stats found for today. Starting fresh.');
     }
   } catch (error) {
-    console.error('[Scheduler] Failed to load initial stats:', error.message);
+    logger.error('[Scheduler] Failed to load initial stats:', error.message);
   }
 }
 
@@ -69,11 +70,11 @@ function startScheduler() {
     );
     const msUntilMidnight = night.getTime() - now.getTime();
 
-    console.log(`[Scheduler] Next save scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes.`);
+    logger.info(`[Scheduler] Next save scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes.`);
 
     // 2. Set a timeout for the next midnight
     setTimeout(() => {
-      console.log('[Scheduler] Midnight reached. Saving final stats for the day.');
+      logger.info('[Scheduler] Midnight reached. Saving final stats for the day.');
       saveDailyStats(); // Save the final stats for the day that just ended
       statsTracker.resetStats(); // Reset for the new day
       // 3. Set a 24-hour interval for all subsequent midnights

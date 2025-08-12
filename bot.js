@@ -1,5 +1,5 @@
 // bot.js
-
+const logger = require('./src/utils/logger');
 const { Telegraf } = require('telegraf');
 const { antiSpamMiddleware } = require('./src/middleware/antiSpam');
 const { registerHandlers } = require('./src/handlers/eventHandlers');

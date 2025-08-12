@@ -1,5 +1,6 @@
 // src/services/searchService.js
 
+const logger = require('../utils/logger');
 const config = require('../../config');
 // 1. IMPORT our new stats tracking function
 const { incrementSearchFailures } = require('../utils/statsTracker');
@@ -16,12 +17,12 @@ async function getSearchResults(query) {
   const { apiKeys, apiUrl } = config.search;
 
   if (!apiKeys || apiKeys.length === 0) {
-    console.error('[Search Service] No Tavily API keys found in config.js. Please check your .env file.');
+    logger.error('[Search Service] No Tavily API keys found in config.js. Please check your .env file.');
     return null;
   }
 
   if (currentKeyIndex >= apiKeys.length) {
-    console.error('[Search Service] All Tavily API keys have been tried and failed. Please check your key limits.');
+    logger.error('[Search Service] All Tavily API keys have been tried and failed. Please check your key limits.');
     // 2. INCREMENT failure counter when all keys are exhausted
     incrementSearchFailures();
     currentKeyIndex = 0;
@@ -31,7 +32,7 @@ async function getSearchResults(query) {
   const currentApiKey = apiKeys[currentKeyIndex];
 
   try {
-    console.log(`[Search Service] Performing search for: "${query}" using key index ${currentKeyIndex}`);
+    logger.info(`[Search Service] Performing search for: "${query}" using key index ${currentKeyIndex}`);
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -47,7 +48,7 @@ async function getSearchResults(query) {
     });
 
     if (response.status === 429 || response.status === 402) {
-      console.warn(`[Search Service] API key at index ${currentKeyIndex} is exhausted or invalid. Rotating to the next key.`);
+      logger.warn(`[Search Service] API key at index ${currentKeyIndex} is exhausted or invalid. Rotating to the next key.`);
       currentKeyIndex += 1;
       return getSearchResults(query);
     }
@@ -59,7 +60,7 @@ async function getSearchResults(query) {
     const data = await response.json();
     return data.answer || null;
   } catch (error) {
-    console.error(`[Search Service] An error occurred while searching: ${error.message}`);
+    logger.error(`[Search Service] An error occurred while searching: ${error.message}`);
     // 3. INCREMENT failure counter on any other fetch error
     incrementSearchFailures();
     return null;

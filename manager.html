@@ -7,75 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: rgb(18, 18, 18); --panel-color: rgb(28, 28, 30);
-            --border-color: rgba(197, 168, 128, 0.2); --text-color: rgb(229, 229, 231);
-            --text-secondary-color: rgb(160, 160, 165); --accent-color: rgb(197, 168, 128);
-            --accent-hover-color: rgb(212, 185, 147); --success-color: #28a745; --error-color: #dc3545;
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif; background-color: var(--bg-color);
-            color: var(--text-color); margin: 0; padding: 20px 40px;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            max-width: 1800px;
-            margin: auto;
-        }
-        .dashboard-panel {
-            background-color: var(--panel-color); border: 1px solid var(--border-color);
-            border-radius: 12px; padding: 30px;
-            display: flex;
-            flex-direction: column;
-        }
-        h2 {
-            font-size: 24px; margin-top: 0; padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .nav-link {
-            display: block; text-align: center; margin-bottom: 20px;
-            color: var(--accent-color); text-decoration: none; font-weight: 500;
-        }
-        .nav-link:hover { text-decoration: underline; }
-        input, select, textarea {
-            width: 100%; padding: 12px; background-color: var(--bg-color);
-            border: 1px solid var(--border-color); border-radius: 8px;
-            color: var(--text-color); font-size: 16px; font-family: 'Inter', sans-serif;
-            transition: border-color 0.2s, box-shadow 0.2s; margin-top: 5px;
-        }
-        textarea { resize: vertical; min-height: 80px; }
-        #json-data { min-height: 250px; font-family: monospace; }
-        input:focus, select:focus, textarea:focus {
-            outline: none; border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(197, 168, 128, 0.3);
-        }
-        button {
-            width: 100%; padding: 14px; background-color: var(--accent-color);
-            color: var(--bg-color); border: none; border-radius: 8px; font-size: 16px;
-            font-weight: 700; cursor: pointer; transition: background-color 0.2s, transform 0.2s;
-            margin-top: 10px;
-        }
-        button:hover { background-color: var(--accent-hover-color); transform: scale(1.02); }
-        .form-group { margin-bottom: 20px; }
-        #response-list ul { list-style: none; padding: 0; margin: 0; max-height: 500px; overflow-y: auto; }
-        #response-list li {
-            display: flex; justify-content: space-between; align-items: center; padding: 12px;
-            border-radius: 6px; background-color: var(--bg-color); margin-bottom: 10px;
-        }
-        .trigger-text { font-weight: 500; }
-        .response-text { font-family: monospace; color: var(--text-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-        .exclusion-indicator { margin-left: 8px; cursor: help; }
-        .status-message { text-align: center; margin-top: 15px; font-weight: 500; min-height: 1em; }
-        .success { color: var(--success-color); }
-        .error { color: var(--error-color); }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--panel-color); }
-        ::-webkit-scrollbar-thumb { background-color: var(--accent-color); border-radius: 10px; border: 2px solid var(--panel-color); }
-    </style>
+    <link rel="stylesheet" href="/css/dashboard.css">
 </head>
 <body>
     <div class="container">
@@ -159,7 +91,7 @@
           responsesList.appendChild(li);
         });
       } catch (err) {
-        console.error('Failed to fetch responses:', err);
+        logger.error('Failed to fetch responses:', err);
       }
     };
 
@@ -204,7 +136,7 @@
       } catch (err) {
         statusElement.className = 'status-message error';
         statusElement.textContent = 'Failed to send request.';
-        console.error('Add response request failed:', err);
+        logger.error('Add response request failed:', err);
       }
       setTimeout(() => { statusElement.textContent = ''; }, 5000);
     });
@@ -239,7 +171,7 @@
       } catch (err) {
         importStatus.className = 'status-message error';
         importStatus.textContent = 'Failed to send request. Is the JSON valid?';
-        console.error('Import request failed:', err);
+        logger.error('Import request failed:', err);
       }
       setTimeout(() => { importStatus.textContent = ''; }, 5000);
     });

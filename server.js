@@ -1,6 +1,7 @@
 // server.js
 require('dotenv').config();
 
+const logger = require('./src/utils/logger');
 const express = require('express');
 const path = require('path');
 const readline = require('readline');
@@ -13,7 +14,7 @@ const { startScheduler, saveDailyStats, initializeAndLoadStats } = require('./sr
 
 const app = express();
 app.set('trust proxy', 1);
-const port = 3000;
+const port = 3001;
 let clients = [];
 
 // NEW: A flag to control broadcasting for this specific session.
@@ -22,6 +23,7 @@ let sendBroadcasts = true;
 // --- Middleware ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Real-time Events Endpoint (SSE) ---
 app.get('/events', (req, res) => {
@@ -32,11 +34,11 @@ app.get('/events', (req, res) => {
 
   const clientId = Date.now();
   clients.push({ id: clientId, res });
-  console.log(`[Server] Dashboard client connected. Total clients: ${clients.length}`);
+  logger.info(`[Server] Dashboard client connected. Total clients: ${clients.length}`);
 
   req.on('close', () => {
     clients = clients.filter((c) => c.id !== clientId);
-    console.log(`[Server] Dashboard client disconnected. Total clients: ${clients.length}`);
+    logger.info(`[Server] Dashboard client disconnected. Total clients: ${clients.length}`);
   });
 });
 
@@ -55,6 +57,9 @@ app.get('/', authMiddleware, (req, res) => {
 app.get('/manager', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'manager.html'));
 });
+app.get('/brainstormer', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'brainstormer.html'));
+});
 app.get('/stats', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'stats.html'));
 });
@@ -63,34 +68,34 @@ app.get('/stats', authMiddleware, (req, res) => {
 async function broadcastToAllGroups(message) {
   const chats = await getKnownChats();
   if (!chats || chats.length === 0) {
-    console.log('[Server] No known groups to broadcast to.');
+    logger.info('[Server] No known groups to broadcast to.');
     return;
   }
-  console.log(`[Server] Broadcasting to ${chats.length} group(s)...`);
-  const broadcastPromises = chats.map((chatId) => bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' }).catch((err) => console.error(`[Broadcast Error] Failed to send message to chat ${chatId}: ${err.message}`)));
+  logger.info(`[Server] Broadcasting to ${chats.length} group(s)...`);
+  const broadcastPromises = chats.map((chatId) => bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' }).catch((err) => logger.error(`[Broadcast Error] Failed to send message to chat ${chatId}: ${err.message}`)));
   await Promise.all(broadcastPromises);
-  console.log('[Server] Broadcast finished.');
+  logger.info('[Server] Broadcast finished.');
 }
 
 // CORRECTED SHUTDOWN BLOCK
 process.once('SIGINT', async () => {
-  console.log('\n[Server] Gracefully shutting down...');
+  logger.info('\n[Server] Gracefully shutting down...');
 
   // 2. SAVE the final stats from the current session before closing.
-  console.log('[Server] Saving final stats before shutdown...');
+  logger.info('[Server] Saving final stats before shutdown...');
   await saveDailyStats();
 
   if (sendBroadcasts) {
-    console.log('Sending offline message...');
+    logger.info('Sending offline message...');
     await broadcastToAllGroups('🤖 ربات ابی برای آپدیت از دسترس خارج شد.');
   } else {
-    console.log('Skipping shutdown broadcast as requested by user.');
+    logger.info('Skipping shutdown broadcast as requested by user.');
   }
 
   bot.stop('SIGINT');
   await db.close();
 
-  console.log('[Server] Shutdown complete.');
+  logger.info('[Server] Shutdown complete.');
   process.exit(0);
 });
 
@@ -106,16 +111,21 @@ async function startApplication() {
   const broadcastAnswer = await question('Send startup/shutdown broadcast to all groups? (Y/n): ');
   if (broadcastAnswer.trim().toLowerCase() === 'n') {
     sendBroadcasts = false;
-    console.log('[Broadcast] Broadcasts for this session are DISABLED.');
+    logger.info('[Broadcast] Broadcasts for this session are DISABLED.');
   }
 
   const customMessage = await question('Enter optional startup message (or press Enter to skip): ');
   rl.close();
 
   app.listen(port, async () => {
-    console.log(`[Server] Express server started. Dashboard is live at http://localhost:${port}`);
+    const memoryUsage = process.memoryUsage();
+    const heapUsedMb = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
+    logger.warn(`--- MEMORY USAGE REPORT ---`);
+    logger.warn(`Heap Used: ${heapUsedMb} MB`);
+    logger.warn(`-------------------------`);
+    logger.info(`[Server] Express server started. Dashboard is live at http://localhost:${port}`);
     bot.launch();
-    console.log('[Bot] Telegraf bot launched and running.');
+    logger.info('[Bot] Telegraf bot launched and running.');
 
     // 4. ACTIVATE the smart scheduler on startup.
     startScheduler();

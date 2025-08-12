@@ -1,5 +1,7 @@
 // src/middleware/auth.js
 
+
+const logger = require('../utils/logger');
 // --- Brute-Force Protection Settings ---
 const MAX_ATTEMPTS = 5; // Max failed attempts before locking out
 const LOCK_TIME_MINUTES = 30; // How long to lock out the IP
@@ -11,7 +13,7 @@ function authMiddleware(req, res, next) {
   const { ip } = req;
 
   if (loginAttempts[ip] && loginAttempts[ip].lockUntil > Date.now()) {
-    console.warn(`[Auth] Blocked login attempt from locked IP: ${ip}`);
+    logger.warn(`[Auth] Blocked login attempt from locked IP: ${ip}`);
     return res.status(403).send('Too many failed login attempts. Please try again later.');
   }
 
@@ -19,7 +21,7 @@ function authMiddleware(req, res, next) {
   const pass = process.env.DASHBOARD_PASSWORD;
 
   if (!user || !pass) {
-    console.error('[Auth] Dashboard credentials are not set in the .env file.');
+    logger.error('[Auth] Dashboard credentials are not set in the .env file.');
     return res.status(500).send('Authentication is not configured on the server.');
   }
 
@@ -39,7 +41,7 @@ function authMiddleware(req, res, next) {
     return next();
   }
 
-  console.warn(`[Auth] Failed login attempt from IP: ${ip}`);
+  logger.warn(`[Auth] Failed login attempt from IP: ${ip}`);
   const attempt = loginAttempts[ip] || { count: 0, firstAttempt: Date.now() };
 
   if (Date.now() - attempt.firstAttempt > ATTEMPT_WINDOW_MINUTES * 60 * 1000) {
@@ -52,7 +54,7 @@ function authMiddleware(req, res, next) {
 
   if (attempt.count >= MAX_ATTEMPTS) {
     loginAttempts[ip].lockUntil = Date.now() + LOCK_TIME_MINUTES * 60 * 1000;
-    console.error(`[Auth] IP locked due to too many failed attempts: ${ip}`);
+    logger.error(`[Auth] IP locked due to too many failed attempts: ${ip}`);
   }
 
   res.setHeader('WWW-Authenticate', 'Basic realm="Bot Dashboard"');

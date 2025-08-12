@@ -1,5 +1,6 @@
 // src/utils/helpers.js
 
+const logger = require('./logger');
 const fs = require('fs');
 const path = require('path');
 const db = require('./database');
@@ -16,7 +17,7 @@ const potentialFalsePositivesFilePath = path.join(__dirname, '..', '..', 'potent
  * @param {Error} error The error object.
  */
 function logError(functionName, error) {
-  console.error(`[ERROR in ${functionName}]`, error.message);
+  logger.error(`[ERROR in ${functionName}]`, error.message);
 }
 
 // --- Chat Logging (Now using the Database) ---
@@ -46,7 +47,7 @@ function logChatIfNew(chatId) {
   db.run(sql, [chatId])
     .then((result) => {
       if (result.changes > 0) {
-        console.log(`[DB] New group chat saved: ${chatId}`);
+        logger.info(`[DB] New group chat saved: ${chatId}`);
       }
     })
     .catch((err) => {

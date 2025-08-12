@@ -1,14 +1,15 @@
 // src/utils/database.js
 
+const logger = require('./logger');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const dbPath = path.resolve(__dirname, '..', '..', 'bot_database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('Could not connect to database', err);
+    logger.error('Could not connect to database', err);
   } else {
-    console.log('Connected to the SQLite database.');
+    logger.info('Connected to the SQLite database.');
   }
 });
 
@@ -28,9 +29,23 @@ function initializeDatabase() {
   `;
   db.exec(createDailyStatsTable, (err) => {
     if (err) {
-      console.error('[DB Init] Could not create daily_stats table:', err.message);
+      logger.error('[DB Init] Could not create daily_stats table:', err.message);
     } else {
-      console.log('[DB Init] daily_stats table is ready.');
+      logger.info('[DB Init] daily_stats table is ready.');
+    }
+  });
+  const createAiHistoryTable = `
+    CREATE TABLE IF NOT EXISTS ai_history (
+      user_id INTEGER PRIMARY KEY,
+      history TEXT NOT NULL,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  db.exec(createAiHistoryTable, (err) => {
+    if (err) {
+      logger.error('[DB Init] Could not create ai_history table:', err.message);
+    } else {
+      logger.info('[DB Init] ai_history table is ready.');
     }
   });
 }
@@ -81,7 +96,7 @@ const run = (sql, params = []) => new Promise((resolve, reject) => {
 const close = () => new Promise((resolve, reject) => {
   db.close((err) => {
     if (err) return reject(err);
-    console.log('Database connection closed.');
+    logger.info('Database connection closed.');
     resolve();
   });
 });
