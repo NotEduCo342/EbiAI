@@ -218,36 +218,49 @@ async function handleAiResponse(ctx, eventLogger) {
     await ctx.replyWithChatAction('typing');
     let aiResponse;
 
+    // Conditionally enable history only for private chats.
+    const useHistory = isPrivateChat;
+    let history = [];
+    if (useHistory) {
+      logger.info(`[AI] Private chat with ${userId}. Loading conversation history.`);
+      history = await getHistory(userId);
+    } else {
+      logger.info(`[AI] Group chat with ${userId}. History is disabled.`);
+    }
+
     if (needsWebSearch(messageText)) {
       incrementSearchCalls();
       logger.info(`[AI] Message from ${userId} triggered a web search.`);
       const searchContext = await getSearchResults(messageText);
 
       if (searchContext) {
-        // Enhanced logging for terminal
         logger.info(`[AI] Web search found context for user ${userId}. Length: ${searchContext.length}`);
         const finalPersona = getSearchPersona(searchContext, messageText);
+        // History is intentionally disabled here to focus on the search context.
         aiResponse = await getAiResponse(messageText, finalPersona, { history: [] });
       } else {
         logger.info(`[AI] Web search found no context. Falling back to standard AI for user ${userId}.`);
-        const history = await getHistory(userId);
+        // Pass the conditional history (will be empty for groups).
         aiResponse = await getAiResponse(messageText, config.ai.persona, { history });
-        history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
-        await saveHistory(userId, history);
+        // Only save history if it's a private chat.
+        if (useHistory) {
+          history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
+          await saveHistory(userId, history);
+        }
       }
     } else {
       logger.info(`[AI] No DB match. Calling standard AI for user ${userId}.`);
-      const history = await getHistory(userId);
+      // Pass the conditional history (will be empty for groups).
       aiResponse = await getAiResponse(messageText, config.ai.persona, { history });
-      history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
-      await saveHistory(userId, history);
+      // Only save history if it's a private chat.
+      if (useHistory) {
+        history.push({ role: 'user', content: messageText }, { role: 'assistant', content: aiResponse });
+        await saveHistory(userId, history);
+      }
     }
 
     incrementAiResponses();
-
-    // Enhanced logging for terminal
     logger.info(`[AI] Replying to ${userId} with AI response. Length: ${aiResponse.length}`);
-
     await ctx.reply(aiResponse, { reply_to_message_id: ctx.message.message_id });
 
     // This log goes to the dashboard feed
